@@ -1,0 +1,31 @@
+{
+  "name": "@milky/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "@clerk/nextjs": "^5.2.4",
+    "@milky/config": "*",
+    "@milky/db": "*",
+    "ai": "^3.2.22",
+    "inngest": "^3.19.6",
+    "next": "^14.2.4",
+    "posthog-js": "^1.143.0",
+    "posthog-node": "^4.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5"
+  }
+}
