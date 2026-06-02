@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     // Lightweight ping — queries pg_catalog so no user tables required.
-    const { error } = await supabase.from("_health_check" as never).select("1").limit(1);
+    const { error } = await supabase.from("users").select("count").limit(1);
     // A "relation does not exist" error still means Supabase responded — connection is healthy.
     if (error && !error.message.includes("does not exist")) {
       dbStatus = "error";

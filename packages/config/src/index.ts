@@ -11,25 +11,27 @@ const serverEnvSchema = z.object({
   // Anthropic
   ANTHROPIC_API_KEY: z.string().min(1),
 
-  // Inngest
-  INNGEST_EVENT_KEY: z.string().min(1),
-  INNGEST_SIGNING_KEY: z.string().min(1),
+  // Inngest — optional until background jobs are wired in
+  INNGEST_EVENT_KEY: z.string().min(1).optional(),
+  INNGEST_SIGNING_KEY: z.string().min(1).optional(),
 
-  // Langfuse
-  LANGFUSE_SECRET_KEY: z.string().min(1),
-  LANGFUSE_PUBLIC_KEY: z.string().min(1),
+  // Langfuse — optional until LLM observability is wired in
+  LANGFUSE_SECRET_KEY: z.string().min(1).optional(),
+  LANGFUSE_PUBLIC_KEY: z.string().min(1).optional(),
   LANGFUSE_HOST: z.string().url().optional(),
 
-  // PostHog
-  POSTHOG_API_KEY: z.string().min(1),
+  // PostHog — optional until analytics is wired in
+  POSTHOG_API_KEY: z.string().min(1).optional(),
 });
 
 const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
-  NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
-  NEXT_PUBLIC_POSTHOG_HOST: z.string().url(),
+
+  // PostHog — optional until analytics is wired in
+  NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1).optional(),
+  NEXT_PUBLIC_POSTHOG_HOST: z.string().url().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
