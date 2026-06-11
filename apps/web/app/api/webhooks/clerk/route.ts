@@ -56,7 +56,8 @@ export async function POST(req: Request) {
 
   const primaryEmail = email_addresses.find((e) => e.id === primary_email_address_id);
   if (!primaryEmail) {
-    return NextResponse.json({ error: "No primary email" }, { status: 400 });
+    // Test events from the Clerk dashboard send empty email_addresses — skip silently.
+    return NextResponse.json({ status: "skipped", reason: "no email" });
   }
 
   const displayName = [first_name, last_name].filter(Boolean).join(" ") || null;
