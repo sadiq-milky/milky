@@ -5,6 +5,7 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   CLERK_SECRET_KEY: z.string().min(1),
   ANTHROPIC_API_KEY: z.string().min(1),
+  AI_GATEWAY_API_KEY: z.string().min(1),
 });
 
 const result = serverEnvSchema.safeParse(process.env);
