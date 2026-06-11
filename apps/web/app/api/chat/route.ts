@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { createServerClient } from "@milky/db";
 import { env } from "../../../lib/env";
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
   const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
-    model: "anthropic/claude-sonnet-4-6",
+    model: anthropic("claude-sonnet-4-6"),
     system: MILKY_SYSTEM_PROMPT,
     messages: modelMessages,
     onFinish: async ({ text, usage }) => {
