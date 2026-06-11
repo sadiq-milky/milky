@@ -1,28 +1,24 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { createServerClient } from "@milky/db";
-import { env } from "../../lib/env";
+import { env } from "../../../lib/env";
 
 const MILKY_SYSTEM_PROMPT = `You are Milky, an intelligent travel companion. You build a deep, longitudinal understanding of the traveller's travel DNA and plan around who they are — not transactions. You push back when useful and suggest proactively.`;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { userId: clerkId } = getAuth(req);
+export async function POST(req: Request) {
+  const { userId: clerkId } = await auth();
   if (!clerkId) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { messages, conversationId } = req.body as {
+  const { messages, conversationId } = (await req.json()) as {
     messages: UIMessage[];
     conversationId?: string;
   };
 
   if (!messages?.length) {
-    return res.status(400).json({ error: "Messages required" });
+    return NextResponse.json({ error: "Messages required" }, { status: 400 });
   }
 
   const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
@@ -35,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (userErr || !userRow) {
-    return res.status(404).json({ error: "User not found" });
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   const internalUserId = userRow.id;
 
@@ -48,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select("id")
       .single();
     if (convoErr || !convo) {
-      return res.status(500).json({ error: "Failed to create conversation" });
+      return NextResponse.json({ error: "Failed to create conversation" }, { status: 500 });
     }
     convoId = convo.id;
   }
@@ -68,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       content: userText,
     });
     if (msgErr) {
-      return res.status(500).json({ error: "Failed to save message" });
+      return NextResponse.json({ error: "Failed to save message" }, { status: 500 });
     }
   }
 
@@ -101,6 +97,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   // Stream to client, passing the conversation id back in a header
-  res.setHeader("X-Conversation-Id", convoId);
-  return result.pipeUIMessageStreamToResponse(res);
+  const response = result.toUIMessageStreamResponse();
+  const headers = new Headers(response.headers);
+  headers.set("X-Conversation-Id", convoId);
+  return new Response(response.body, { status: response.status, headers });
 }
