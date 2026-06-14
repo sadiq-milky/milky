@@ -4,6 +4,7 @@
   "private": true,
   "workspaces": [
     "apps/mobile",
+    "apps/api",
     "packages/*"
   ],
   "scripts": {
