@@ -97,6 +97,17 @@ export async function POST(req: Request) {
     },
   });
 
+  // Mobile clients (Expo Go) can't read streaming response bodies, so they
+  // ask for the full text as plain JSON via this header. Web clients omit it
+  // and get the streamed UI message response. onFinish still persists in both.
+  if (req.headers.get("X-Milky-Client") === "mobile") {
+    const text = await result.text;
+    return NextResponse.json(
+      { text, conversationId: convoId },
+      { headers: { "X-Conversation-Id": convoId } }
+    );
+  }
+
   // Stream to client, passing the conversation id back in a header
   const response = result.toUIMessageStreamResponse();
   const headers = new Headers(response.headers);
