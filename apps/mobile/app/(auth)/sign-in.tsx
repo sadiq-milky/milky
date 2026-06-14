@@ -4,22 +4,23 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-nativ
 import { useState } from "react";
 
 export default function SignInScreen() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn, fetchStatus } = useSignIn();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   async function handleSignIn() {
-    if (!isLoaded) return;
-    try {
-      const result = await signIn.create({ identifier: email, password });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.replace("/(app)");
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Sign in failed");
+    if (fetchStatus === "fetching") return;
+    setError("");
+    const { error } = await signIn.password({ emailAddress: email, password });
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    if (signIn.status === "complete") {
+      await signIn.finalize();
+      router.replace("/(app)");
     }
   }
 
@@ -42,11 +43,15 @@ export default function SignInScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <TouchableOpacity style={styles.button} onPress={handleSignIn}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleSignIn}
+        disabled={fetchStatus === "fetching"}
+      >
         <Text style={styles.buttonText}>Sign In</Text>
       </TouchableOpacity>
       <Link href="/(auth)/sign-up" style={styles.link}>
-        Don&apos;t have an account? Sign up
+        Don't have an account? Sign up
       </Link>
     </View>
   );

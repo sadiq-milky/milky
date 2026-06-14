@@ -4,7 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-nativ
 import { useState } from "react";
 
 export default function SignUpScreen() {
-  const { signUp, setActive, isLoaded } = useSignUp();
+  const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,26 +13,32 @@ export default function SignUpScreen() {
   const [error, setError] = useState("");
 
   async function handleSignUp() {
-    if (!isLoaded) return;
-    try {
-      await signUp.create({ emailAddress: email, password });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Sign up failed");
+    if (fetchStatus === "fetching") return;
+    setError("");
+    const { error } = await signUp.password({ emailAddress: email, password });
+    if (error) {
+      setError(error.message);
+      return;
     }
+    const { error: sendError } = await signUp.verifications.sendEmailCode();
+    if (sendError) {
+      setError(sendError.message);
+      return;
+    }
+    setPendingVerification(true);
   }
 
   async function handleVerify() {
-    if (!isLoaded) return;
-    try {
-      const result = await signUp.attemptEmailAddressVerification({ code });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        router.replace("/(app)");
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+    if (fetchStatus === "fetching") return;
+    setError("");
+    const { error } = await signUp.verifications.verifyEmailCode({ code });
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    if (signUp.status === "complete") {
+      await signUp.finalize();
+      router.replace("/(app)");
     }
   }
 
@@ -48,7 +54,11 @@ export default function SignUpScreen() {
           onChangeText={setCode}
           keyboardType="number-pad"
         />
-        <TouchableOpacity style={styles.button} onPress={handleVerify}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleVerify}
+          disabled={fetchStatus === "fetching"}
+        >
           <Text style={styles.buttonText}>Verify</Text>
         </TouchableOpacity>
       </View>
@@ -74,7 +84,11 @@ export default function SignUpScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <TouchableOpacity style={styles.button} onPress={handleSignUp}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleSignUp}
+        disabled={fetchStatus === "fetching"}
+      >
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
       <Link href="/(auth)/sign-in" style={styles.link}>

@@ -1,7 +1,6 @@
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import * as SecureStore from "expo-secure-store";
 import { Stack } from "expo-router";
-import Constants from "expo-constants";
 
 const tokenCache = {
   async getToken(key: string) {
@@ -12,7 +11,7 @@ const tokenCache = {
   },
 };
 
-const publishableKey = Constants.expoConfig?.extra?.clerkPublishableKey as string;
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
 export default function RootLayout() {
   return (
