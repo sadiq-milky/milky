@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
+    model: anthropic("claude-opus-4-8"),
     system: MILKY_SYSTEM_PROMPT,
     messages: modelMessages,
     onFinish: async ({ text, usage }) => {
