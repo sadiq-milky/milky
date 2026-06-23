@@ -1,29 +1,24 @@
 import { useAuth } from "@clerk/expo";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { ChatInput } from "../../components/ChatInput";
+import { MessageList } from "../../components/MessageList";
 import { sendChatMessage } from "../../lib/api";
-
-interface Message {
-  role: "user" | "assistant";
-  text: string;
-}
+import type { ChatMessage } from "../../lib/types";
 
 export default function HomeScreen() {
   const { signOut, getToken } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
-  const scrollRef = useRef<ScrollView>(null);
 
   async function handleSend() {
     const text = input.trim();
@@ -47,8 +42,8 @@ export default function HomeScreen() {
     // Show user message immediately, add empty assistant bubble for streaming
     setMessages((prev) => [
       ...prev,
-      { role: "user", text },
-      { role: "assistant", text: "" },
+      { id: String(prev.length + 1), role: "user", text },
+      { id: String(prev.length + 2), role: "assistant", text: "" },
     ]);
     setIsLoading(true);
 
@@ -61,14 +56,14 @@ export default function HomeScreen() {
 
       setMessages((prev) => {
         const next = [...prev];
-        next[next.length - 1] = { role: "assistant", text: data.text || "…" };
+        next[next.length - 1] = { ...next[next.length - 1], text: data.text || "…" };
         return next;
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setMessages((prev) => {
         const next = [...prev];
-        next[next.length - 1] = { role: "assistant", text: `Error: ${msg}` };
+        next[next.length - 1] = { ...next[next.length - 1], text: `Error: ${msg}` };
         return next;
       });
     } finally {
@@ -88,46 +83,14 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={styles.messages}
-        contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-      >
-        {messages.length === 0 && (
-          <Text style={styles.emptyHint}>Send a message to start talking to Milky.</Text>
-        )}
-        {messages.map((m, i) => (
-          <View
-            key={i}
-            style={[styles.bubble, m.role === "user" ? styles.userBubble : styles.aiBubble]}
-          >
-            <Text style={m.role === "user" ? styles.userText : styles.aiText}>
-              {m.text || (isLoading && i === messages.length - 1 ? "…" : "")}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
+      <MessageList messages={messages} isLoading={isLoading} />
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Ask Milky something…"
-          editable={!isLoading}
-          returnKeyType="send"
-          onSubmitEditing={handleSend}
-          multiline
-        />
-        <TouchableOpacity
-          style={[styles.send, isLoading && styles.sendDisabled]}
-          onPress={handleSend}
-          disabled={isLoading}
-        >
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
-      </View>
+      <ChatInput
+        value={input}
+        onChangeText={setInput}
+        onSend={handleSend}
+        disabled={isLoading}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -146,36 +109,4 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 20, fontWeight: "700" },
   signOut: { fontSize: 14, color: "#999" },
-  messages: { flex: 1 },
-  messagesContent: { padding: 16, gap: 10 },
-  emptyHint: { textAlign: "center", color: "#bbb", marginTop: 40, fontSize: 14 },
-  bubble: { maxWidth: "80%", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  userBubble: { alignSelf: "flex-end", backgroundColor: "#6366f1" },
-  aiBubble: { alignSelf: "flex-start", backgroundColor: "#f3f4f6" },
-  userText: { color: "#fff", fontSize: 15 },
-  aiText: { color: "#111", fontSize: 15 },
-  inputRow: {
-    flexDirection: "row",
-    padding: 12,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  input: {
-    flex: 1,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 120,
-  },
-  send: {
-    backgroundColor: "#6366f1",
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    justifyContent: "center",
-  },
-  sendDisabled: { backgroundColor: "#c7c8f0" },
-  sendText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });
