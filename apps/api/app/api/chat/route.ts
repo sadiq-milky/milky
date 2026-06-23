@@ -41,6 +41,7 @@ export async function POST(req: Request) {
   if (userRow) {
     internalUserId = userRow.id;
   } else {
+    console.warn("[chat] JIT-provisioning missing user — webhook may not have fired", { clerkId });
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(clerkId);
     const primaryEmail = clerkUser.emailAddresses.find(
@@ -52,20 +53,24 @@ export async function POST(req: Request) {
     const displayName =
       [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
 
-    const { data: inserted, error: insertErr } = await supabase
+    const { data: upserted, error: upsertErr } = await supabase
       .from("users")
-      .insert({
-        clerk_user_id: clerkId,
-        email: primaryEmail.emailAddress,
-        display_name: displayName,
-        avatar_url: clerkUser.imageUrl,
-      })
+      .upsert(
+        {
+          clerk_user_id: clerkId,
+          email: primaryEmail.emailAddress,
+          display_name: displayName,
+          avatar_url: clerkUser.imageUrl,
+        },
+        { onConflict: "clerk_user_id", ignoreDuplicates: false },
+      )
       .select("id")
       .single();
-    if (insertErr || !inserted) {
+    if (upsertErr || !upserted) {
+      console.error("[chat] user upsert failed:", upsertErr);
       return NextResponse.json({ error: "Failed to provision user" }, { status: 500 });
     }
-    internalUserId = inserted.id;
+    internalUserId = upserted.id;
   }
 
   // 2. Get or create conversation
@@ -97,6 +102,7 @@ export async function POST(req: Request) {
       content: userText,
     });
     if (msgErr) {
+      console.error("[chat] message save failed:", msgErr);
       return NextResponse.json({ error: "Failed to save message" }, { status: 500 });
     }
   }
