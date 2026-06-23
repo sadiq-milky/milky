@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { sendChatMessage } from "../../lib/api";
 
 interface Message {
   role: "user" | "assistant";
@@ -53,28 +54,11 @@ export default function HomeScreen() {
 
     try {
       const token = await getToken();
-
-      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          "X-Milky-Client": "mobile",
-        },
-        body: JSON.stringify({ messages: apiMessages, conversationId }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`${res.status}: ${await res.text()}`);
-      }
+      const data = await sendChatMessage(apiMessages, conversationId, token);
 
       // Track the conversation so follow-up messages continue it
-      const convoId = res.headers.get("X-Conversation-Id");
-      if (convoId) setConversationId(convoId);
+      if (data.conversationId) setConversationId(data.conversationId);
 
-      // Mobile gets plain JSON ({ text, conversationId }) — see X-Milky-Client
-      // header above. Streaming word-by-word needs a custom dev build (later).
-      const data = (await res.json()) as { text: string; conversationId: string };
       setMessages((prev) => {
         const next = [...prev];
         next[next.length - 1] = { role: "assistant", text: data.text || "…" };

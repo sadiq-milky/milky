@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { createServerClient } from "@milky/db";
@@ -24,17 +24,49 @@ export async function POST(req: Request) {
 
   const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // 1. Resolve internal user UUID from Clerk id
-  const { data: userRow, error: userErr } = await supabase
+  // 1. Resolve internal user UUID from Clerk id, JIT-provisioning if absent.
+  // In dev the Clerk webhook can't reach localhost, so first sign-in has no row.
+  const { data: userRow, error: lookupErr } = await supabase
     .from("users")
     .select("id")
     .eq("clerk_user_id", clerkId)
-    .single();
+    .maybeSingle();
 
-  if (userErr || !userRow) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (lookupErr) {
+    console.error("[chat] user lookup failed:", lookupErr);
+    return NextResponse.json({ error: "User lookup failed" }, { status: 500 });
   }
-  const internalUserId = userRow.id;
+
+  let internalUserId: string;
+  if (userRow) {
+    internalUserId = userRow.id;
+  } else {
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(clerkId);
+    const primaryEmail = clerkUser.emailAddresses.find(
+      (e) => e.id === clerkUser.primaryEmailAddressId,
+    );
+    if (!primaryEmail) {
+      return NextResponse.json({ error: "Clerk user missing email" }, { status: 500 });
+    }
+    const displayName =
+      [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("users")
+      .insert({
+        clerk_user_id: clerkId,
+        email: primaryEmail.emailAddress,
+        display_name: displayName,
+        avatar_url: clerkUser.imageUrl,
+      })
+      .select("id")
+      .single();
+    if (insertErr || !inserted) {
+      return NextResponse.json({ error: "Failed to provision user" }, { status: 500 });
+    }
+    internalUserId = inserted.id;
+  }
 
   // 2. Get or create conversation
   let convoId = conversationId;
