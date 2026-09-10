@@ -84,6 +84,38 @@ npx supabase gen types typescript \
   > packages/db/src/database.types.ts
 ```
 
+## Keeping Supabase awake
+
+Supabase pauses free-tier projects after **7 days of inactivity**, and the pause
+timer only resets on traffic through the **Data API** (the PostgREST `/rest/v1`
+endpoint) — direct SQL or dashboard queries don't count. The workflow at
+`.github/workflows/supabase-keepalive.yml` sends one read-only REST request every
+2 days to keep the project alive.
+
+### Setup
+
+In your GitHub repo, go to **Settings → Secrets and variables → Actions** and add:
+
+| Name | Type | Value | Where to find it |
+|---|---|---|---|
+| `SUPABASE_PROJECT_REF` | Secret | Your project ref (e.g. `abcdefghijklmno`) | Supabase dashboard → **Project Settings → General → Reference ID**. It's also the subdomain in your project URL: `https://<ref>.supabase.co`. |
+| `SUPABASE_ANON_KEY` | Secret | The `anon` / public API key | Supabase dashboard → **Project Settings → API → Project API keys → `anon` `public`**. |
+| `TABLE` | Variable | Any table the anon key can `SELECT` from | Pick a small existing table (must be readable under your RLS policies). |
+
+The request is read-only (`GET ...?select=id&limit=1`) and safe to run repeatedly.
+Trigger it manually any time from the **Actions** tab → **Supabase keep-alive** →
+**Run workflow**. The job fails (with the HTTP status and response body in the log)
+if the endpoint returns a non-2xx status.
+
+> **Caveat — GitHub disables idle cron workflows.** GitHub automatically disables
+> scheduled workflows after **60 days without any repo activity** (commits, etc.) —
+> exactly the dormancy a paused side project falls into. If that happens, the
+> keep-alive stops running silently. **Mitigation:** point a free external uptime
+> monitor (e.g. UptimeRobot, cron-job.org) at the same REST URL on a similar
+> cadence, so keep-alive traffic doesn't depend on GitHub's scheduler. (A periodic
+> trivial commit also resets the 60-day timer, but an external ping is more
+> reliable.)
+
 ## Auth flow
 
 Clerk handles auth on both platforms. The Expo app stores tokens in `expo-secure-store`. The Next.js middleware protects all routes except `/api/health` and `/api/inngest`.

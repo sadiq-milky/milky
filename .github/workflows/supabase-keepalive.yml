@@ -1,0 +1,53 @@
+# Supabase keep-alive
+#
+# Supabase pauses free-tier projects after 7 days of inactivity. The pause
+# timer only resets on traffic through the Data API (PostgREST /rest/v1),
+# NOT on direct SQL/dashboard queries. So this workflow makes a small
+# read-only HTTP request to the REST endpoint every 2 days.
+#
+# Required GitHub repo secrets (Settings > Secrets and variables > Actions):
+#   SUPABASE_PROJECT_REF  - your project ref, e.g. "abcdefghijklmno"
+#   SUPABASE_ANON_KEY     - the project's anon/public API key
+#
+# Required GitHub repo variable (same page, "Variables" tab):
+#   TABLE                 - name of any table the anon key can SELECT from
+#
+# See README ("Keeping Supabase awake") for where to find these values.
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # Every 2 days at 08:17 UTC. (Odd minute to avoid the top-of-hour rush,
+    # which GitHub may delay.)
+    - cron: "17 8 */2 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST endpoint
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TABLE: ${{ vars.TABLE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_PROJECT_REF:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ] || [ -z "${TABLE:-}" ]; then
+            echo "Missing SUPABASE_PROJECT_REF, SUPABASE_ANON_KEY, or TABLE. Check repo secrets/variables." >&2
+            exit 1
+          fi
+
+          URL="https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/${TABLE}?select=id&limit=1"
+          echo "GET ${URL}"
+
+          # --fail-with-body: non-zero exit on HTTP >= 400, but still print the body.
+          # -sS: silent progress, but show errors.
+          # -w: append the HTTP status code on its own line so it's visible in the log.
+          curl --fail-with-body -sS \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -w $'\nHTTP status: %{http_code}\n' \
+            "${URL}"
